@@ -24,6 +24,7 @@ export default function App() {
   const [cursorLat, setCursorLat] = useState<number | null>(null);
   const [cursorLng, setCursorLng] = useState<number | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Custom Leaflet pin icon
   const createPinIcon = () => {
@@ -74,72 +75,102 @@ export default function App() {
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [RIZAL_CENTER.lat, RIZAL_CENTER.lng],
-      zoom: 11,
-      minZoom: 10,
-      maxZoom: 19,
-      maxBounds: RIZAL_BOUNDS,
-      maxBoundsViscosity: 0.8,
-      zoomControl: true,
-    });
+    try {
+      const map = L.map(mapContainerRef.current, {
+        center: [RIZAL_CENTER.lat, RIZAL_CENTER.lng],
+        zoom: 11,
+        minZoom: 10,
+        maxZoom: 19,
+        maxBounds: RIZAL_BOUNDS,
+        maxBoundsViscosity: 0.8,
+        zoomControl: true,
+      });
 
-    // Standard OpenStreetMap tile layer - loads full screen tiles without black edge bars
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map);
+      // Standard OpenStreetMap tile layer - loads full screen tiles without black edge bars
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(map);
 
-    // Initial center on Rizal
-    map.setView([RIZAL_CENTER.lat, RIZAL_CENTER.lng], 11);
+      // Initial center on Rizal
+      map.setView([RIZAL_CENTER.lat, RIZAL_CENTER.lng], 11);
 
-    // Ensure Leaflet calculates the full viewport width and height immediately
-    map.invalidateSize();
-    const timer = setTimeout(() => {
+      // Ensure Leaflet calculates the full viewport width and height immediately
       map.invalidateSize();
-    }, 150);
+      const timer = setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
 
-    const handleResize = () => {
-      map.invalidateSize();
-    };
-    window.addEventListener('resize', handleResize);
+      const handleResize = () => {
+        map.invalidateSize();
+      };
+      window.addEventListener('resize', handleResize);
 
-    // Track mouse coordinates live
-    map.on('mousemove', (e: L.LeafletMouseEvent) => {
-      setCursorLat(Number(e.latlng.lat.toFixed(6)));
-      setCursorLng(Number(e.latlng.lng.toFixed(6)));
-    });
+      // Track mouse coordinates live
+      map.on('mousemove', (e: L.LeafletMouseEvent) => {
+        setCursorLat(Number(e.latlng.lat.toFixed(6)));
+        setCursorLng(Number(e.latlng.lng.toFixed(6)));
+      });
 
-    map.on('mouseout', () => {
-      setCursorLat(null);
-      setCursorLng(null);
-    });
+      map.on('mouseout', () => {
+        setCursorLat(null);
+        setCursorLng(null);
+      });
 
-    // Click anywhere in Rizal to set Latitude & Longitude
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      const clickLat = Number(e.latlng.lat.toFixed(6));
-      const clickLng = Number(e.latlng.lng.toFixed(6));
-      setLat(clickLat);
-      setLng(clickLng);
-      updateMarker(clickLat, clickLng);
-    });
+      // Click anywhere in Rizal to set Latitude & Longitude
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        const clickLat = Number(e.latlng.lat.toFixed(6));
+        const clickLng = Number(e.latlng.lng.toFixed(6));
+        setLat(clickLat);
+        setLng(clickLng);
+        updateMarker(clickLat, clickLng);
+      });
 
-    mapInstanceRef.current = map;
-    updateMarker(RIZAL_CENTER.lat, RIZAL_CENTER.lng);
+      mapInstanceRef.current = map;
+      updateMarker(RIZAL_CENTER.lat, RIZAL_CENTER.lng);
+      setMapError(null);
 
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', handleResize);
-      map.remove();
-      mapInstanceRef.current = null;
-    };
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', handleResize);
+        map.remove();
+        mapInstanceRef.current = null;
+      };
+    } catch (error) {
+      console.error('Failed to initialize Leaflet map:', error);
+      setMapError('The map failed to initialize. Please refresh the page or check your browser console.');
+      return undefined;
+    }
   }, [updateMarker]);
 
   const handleCopy = () => {
+    if (!navigator.clipboard) {
+      setMapError('Clipboard access is unavailable in this browser.');
+      return;
+    }
+
     navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (mapError) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-950 text-slate-100 px-6">
+        <div className="max-w-md rounded-2xl border border-red-500/30 bg-slate-900/90 p-6 text-center shadow-2xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-400">Map Error</p>
+          <h1 className="mt-3 text-2xl font-bold">The app could not load</h1>
+          <p className="mt-2 text-sm text-slate-300">{mapError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-6 rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-400"
+          >
+            Reload page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden select-none bg-slate-900 m-0 p-0">
