@@ -1,0 +1,6 @@
+{
+  "name": "GeoPoint - Leaflet Latitude & Longitude Navigator",
+  "description": "Professional geospatial coordinate explorer, distance measurement, coordinate converter, and Leaflet mapping platform.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
